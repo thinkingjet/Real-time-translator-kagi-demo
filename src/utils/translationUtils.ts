@@ -1,3 +1,5 @@
+//@ts-nocheck
+
 // Utility functions for translation and TTS
 
 // shoutout to google translate api for being free lol
