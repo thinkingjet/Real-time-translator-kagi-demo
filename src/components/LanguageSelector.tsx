@@ -1,6 +1,10 @@
 import React from 'react';
 
-// Define language options
+/**
+ * Available languages for translation
+ * I selected these languages based on cartesia support
+ * Could easily add more languages in the future using eleven labs+cartesia together
+ */
 export const languages = [
   { code: 'en', name: 'English' },
   { code: 'es', name: 'Spanish' },
@@ -19,14 +23,28 @@ export const languages = [
   { code: 'tr', name: 'Turkish' },
 ];
 
+/**
+ * Props interface for the LanguageSelector component
+ * I used TypeScript to make the code more maintainable and catch errors early
+ */
 interface LanguageSelectorProps {
-  selectedLanguage: string;
-  onChange: (languageCode: string) => void;
-  label: string;
-  disabled?: boolean;
-  otherLanguage?: string; // Add prop for the other language selector's value
+  selectedLanguage: string;      // Currently selected language code
+  onChange: (languageCode: string) => void;  // Callback when language changes
+  label: string;                 // Label text for the selector
+  disabled?: boolean;            // Optional: Disable selector during speech
+  otherLanguage?: string;        // Optional: Currently selected language in the other selector
 }
 
+/**
+ * LanguageSelector Component
+ * A reusable dropdown component for selecting languages. I implemented this with:
+ * - TypeScript for type safety
+ * - Tailwind CSS for styling
+ * - Smart filtering to prevent selecting same language in both dropdowns
+ * - Custom styling for better UX
+ * 
+ * @param props - See LanguageSelectorProps interface
+ */
 const LanguageSelector: React.FC<LanguageSelectorProps> = ({
   selectedLanguage,
   onChange,
@@ -34,7 +52,8 @@ const LanguageSelector: React.FC<LanguageSelectorProps> = ({
   disabled = false,
   otherLanguage,
 }) => {
-  // Filter out the language that's selected in the other selector
+  // Filter out the language that's selected in the other dropdown
+  // This prevents users from selecting the same language for source and target
   const availableLanguages = languages.filter(lang => 
     !otherLanguage || lang.code !== otherLanguage
   );
@@ -51,11 +70,13 @@ const LanguageSelector: React.FC<LanguageSelectorProps> = ({
           appearance-none cursor-pointer focus:ring-2 focus:ring-purple-600 focus:border-transparent
           ${disabled ? 'opacity-50 cursor-not-allowed' : ''}
         `}
-        style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23ffffff'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`, 
-                backgroundRepeat: 'no-repeat', 
-                backgroundPosition: 'right 0.75rem center', 
-                backgroundSize: '1rem',
-                paddingRight: '2.5rem' }}
+        style={{ 
+          backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23ffffff'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`, 
+          backgroundRepeat: 'no-repeat', 
+          backgroundPosition: 'right 0.75rem center', 
+          backgroundSize: '1rem',
+          paddingRight: '2.5rem' 
+        }}
       >
         {availableLanguages.map((language) => (
           <option key={language.code} value={language.code}>

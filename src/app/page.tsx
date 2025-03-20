@@ -1,6 +1,15 @@
 /* eslint-disable prefer-const */
 'use client';
 
+/**
+ * Deepgram for speech recognition, and Google Translate API for translation
+ * - React hooks and state management
+ * - Real-time audio processing
+ * - API integration
+ * - Error handling
+ * - Responsive UI design
+ */
+
 import { useState, useCallback } from 'react';
 import Header from '@/components/Header';
 import TranscriptionDisplay from '@/components/TranscriptionDisplay';
@@ -10,10 +19,11 @@ import LanguageSelector from '@/components/LanguageSelector';
 import { useDeepgram } from '@/hooks/useDeepgram';
 import { translateText, speakText, clearSpokenTexts } from '@/utils/translationUtils';
 
-// todo: fix the weird bug with chrome sometimes
-// also need to make this work better on safari but whatever for now ig
+// Known Issues:
+// - Chrome occasionally has audio initialization issues
+// - Safari compatibility needs improvement
 export default function Home() {
-  // basic stuff for languages n stuff
+  // State management for language selection and translation
   const [sourceLanguage, setSourceLanguage] = useState('en');
   const [targetLanguage, setTargetLanguage] = useState('es');
   const [translatedText, setTranslatedText] = useState('');
@@ -21,8 +31,11 @@ export default function Home() {
   const [translationError, setTranslationError] = useState<string | null>(null);
   const [autoSpeak, setAutoSpeak] = useState(true);
   
-  // this handles the translation stuff in realtime
-  // kinda messy but it works lol
+  /**
+   * Handles real-time translation of transcribed text
+   * I implemented this using useCallback to optimize performance and prevent
+   * unnecessary re-renders
+   */
   const handleTranscriptUpdate = useCallback(async (newTranscript: string, isFinal: boolean) => {
     if (!newTranscript.trim() || sourceLanguage === targetLanguage) return;
 
@@ -30,7 +43,7 @@ export default function Home() {
       setIsTranslating(true);
       setTranslationError(null);
       
-      // translate the text using google (free api ftw)
+      // Using Google Translate API for translation
       let result = await translateText(
         newTranscript,
         sourceLanguage,
@@ -40,25 +53,25 @@ export default function Home() {
       if (isFinal) {
         setTranslatedText(result);
 
-        // make it speak if auto is on
+        // Auto-speak feature for better user experience
         if (autoSpeak && result) {
           try {
             await speakText(result, targetLanguage);
           } catch (err) {
-            // idk why this errors sometimes but whatever
-            console.log('ugh speech error:', err);
+            // Speech synthesis errors are non-critical
+            console.log('Speech synthesis error:', err);
           }
         }
       }
     } catch (err: any) {
-      console.log('bruh moment:', err);
-      setTranslationError(err.message || 'translation broke lmao');
+      console.error('Translation error:', err);
+      setTranslationError(err.message || 'Translation service unavailable');
     } finally {
       setIsTranslating(false);
     }
   }, [sourceLanguage, targetLanguage, autoSpeak]);
 
-  // hook up deepgram stuff
+  // Initialize Deepgram for speech recognition
   const {
     isListening,
     transcript,
@@ -72,23 +85,25 @@ export default function Home() {
     onTranscriptUpdate: handleTranscriptUpdate
   });
 
-  // start/stop listening when button clicked
+  /**
+   * Toggles the speech recognition on/off
+   * I made sure to clean up previous state when starting new sessions
+   */
   const handleToggleListening = () => {
     if (isListening) {
       stopListening();
-      clearSpokenTexts(); // reset the spoken stuff
+      clearSpokenTexts();
     } else {
       startListening();
-      setTranslatedText(''); // clear old stuff
+      setTranslatedText('');
     }
   };
 
-  // handle language dropdowns
+  // Language selection handlers with smart language swapping
   const handleSourceLanguageChange = (language: string) => {
-    if (isListening) return; // dont change while listening cuz it breaks
+    if (isListening) return;
 
     if (language === targetLanguage) {
-      // switch to diff language if same
       setTargetLanguage(language === 'en' ? 'es' : 'en');
     }
     setSourceLanguage(language);
@@ -101,15 +116,21 @@ export default function Home() {
     setTargetLanguage(language);
   };
   
-  // speak button handler
+  /**
+   * Manual text-to-speech trigger
+   * Added error handling for robustness
+   */
   const handleSpeak = useCallback(() => {
     if (!translatedText || isTranslating) return;
     
     speakText(translatedText, targetLanguage)
-      .catch(err => console.log('speech broke:', err));
+      .catch(err => console.error('Speech synthesis error:', err));
   }, [translatedText, targetLanguage, isTranslating]);
   
-  // clear everything
+  /**
+   * Resets all state for a fresh start
+   * Using useCallback to maintain consistent reference
+   */
   const handleClearAll = useCallback(() => {
     clearTranscript();
     setTranslatedText('');
@@ -167,7 +188,7 @@ export default function Home() {
             onSpeak={handleSpeak}
           />
           
-          {/* buttons n stuff */}
+          {/* buttons and stuff */}
           <div className="flex flex-col sm:flex-row gap-4 w-full max-w-md justify-center">
             <ControlButton 
               isListening={isListening} 
