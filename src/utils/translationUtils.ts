@@ -270,6 +270,158 @@ export const speakText = async (text: string, language: string): Promise<void> =
 };
 
 /**
+ * Converts text to speech using Cartesia's TTS API, but forces playback
+ * even if the text has been spoken before. Used for manual replay.
+ * 
+ * @param text - Text to convert to speech
+ * @param language - Target language code
+ * @returns Promise<void>
+ */
+export const speakTextForced = async (text: string, language: string): Promise<void> => {
+  try {
+    if (!text.trim()) {
+      return;
+    }
+
+    let lang = language.split('-')[0];
+
+    // Get API key securely from backend
+    let response = await fetch('/api/tts');
+    let { apiKey } = await response.json();
+
+    if (!apiKey) {
+      throw new Error('TTS API key not found');
+    }
+
+    // Initialize WebSocket connection
+    let ws = new WebSocket(`wss://api.cartesia.ai/tts/websocket?cartesia_version=2024-06-10&api_key=${apiKey}`);
+
+    return new Promise((resolve, reject) => {
+      let audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      let contextId = `tts-${Date.now()}`;
+      let audioQueue: Float32Array[] = [];
+      let isPlaying = false;
+      let hasStartedPlaying = false;
+
+      /**
+       * Plays the next chunk of audio from the queue
+       * I implemented this for smooth streaming playback
+       */
+      const playNextChunk = () => {
+        if (audioQueue.length === 0 || isPlaying) return;
+
+        isPlaying = true;
+        hasStartedPlaying = true;
+        let chunk = audioQueue.shift()!;
+        
+        // Create and configure audio buffer
+        let buffer = audioCtx.createBuffer(1, chunk.length, 44100);
+        buffer.copyToChannel(chunk, 0);
+
+        let source = audioCtx.createBufferSource();
+        source.buffer = buffer;
+        source.connect(audioCtx.destination);
+        
+        // Setup completion handler for continuous playback
+        source.onended = () => {
+          isPlaying = false;
+          playNextChunk();
+        };
+
+        source.start();
+      };
+
+      // Handle WebSocket connection open
+      ws.onopen = () => {
+        // Select appropriate voice for language
+        let voiceId = VOICE_IDS[lang] || DEFAULT_VOICE_ID;
+
+        // Configure TTS request with optimal settings
+        ws.send(JSON.stringify({
+          model_id: 'sonic-2',  // Latest model for best quality
+          transcript: text,
+          voice: {
+            mode: 'id',
+            id: voiceId,
+            __experimental_controls: {
+              speed: 'normal',
+              emotion: ['positivity']  // Add friendly tone
+            }
+          },
+          language: lang,
+          context_id: contextId,
+          output_format: {
+            container: 'raw',
+            encoding: 'pcm_s16le',  // High-quality audio format
+            sample_rate: 44100      // CD-quality sampling
+          },
+          continue: false
+        }));
+      };
+
+      // Process incoming audio chunks
+      ws.onmessage = async (event) => {
+        try {
+          let msg = JSON.parse(event.data);
+
+          if (msg.type === 'chunk' && msg.data) {
+            // Convert base64 audio data to raw format
+            let raw = atob(msg.data);
+            let audio = new Int16Array(raw.length / 2);
+            
+            // Process binary audio data
+            for (let i = 0; i < raw.length; i += 2) {
+              let byte1 = raw.charCodeAt(i);
+              let byte2 = raw.charCodeAt(i + 1);
+              audio[i / 2] = (byte2 << 8) | byte1;
+            }
+
+            // Normalize audio data to floating point
+            let float = new Float32Array(audio.length);
+            for (let i = 0; i < audio.length; i++) {
+              float[i] = audio[i] / 32768.0;
+            }
+
+            // Queue audio chunk and start playback
+            audioQueue.push(float);
+            playNextChunk();
+          } else if (msg.type === 'error') {
+            console.error('TTS error:', msg.error);
+            reject(new Error(msg.error));
+          } else if (msg.type === 'done') {
+            // Ensure all audio finishes playing
+            let checkQueue = setInterval(() => {
+              if (audioQueue.length === 0 && !isPlaying) {
+                clearInterval(checkQueue);
+                ws.close();
+                resolve();
+              }
+            }, 100);
+          }
+        } catch (error) {
+          console.error('Error processing TTS message:', error);
+          reject(error);
+        }
+      };
+
+      ws.onerror = (error) => {
+        console.error('WebSocket error:', error);
+        reject(error);
+      };
+
+      ws.onclose = () => {
+        if (!hasStartedPlaying) {
+          reject(new Error('WebSocket closed before audio started playing'));
+        }
+      };
+    });
+  } catch (error) {
+    console.error('Error speaking text:', error);
+    throw error;
+  }
+};
+
+/**
  * Clears the cache of spoken texts
  * Useful when starting a new session or resetting state
  */

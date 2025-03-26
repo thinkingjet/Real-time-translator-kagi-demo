@@ -169,20 +169,28 @@ export const startRecording = async (
  */
 export const stopRecording = (mediaRecorder: MediaRecorder | null, socket: WebSocket | null) => {
   // Stop recording if active
-  if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-    mediaRecorder.stop();
+  if (mediaRecorder && mediaRecorder.state && mediaRecorder.state !== 'inactive') {
+    try {
+      mediaRecorder.stop();
+    } catch (err) {
+      console.error('Error stopping media recorder:', err);
+    }
   }
   
   // Close WebSocket connection gracefully
   if (socket && socket.readyState === WebSocket.OPEN) {
     // Notify Deepgram we're done
-    socket.send(JSON.stringify({ type: 'CloseStream' }));
-    
-    // Close socket after ensuring message is sent
-    setTimeout(() => {
-      if (socket.readyState === WebSocket.OPEN) {
-        socket.close();
-      }
-    }, 300);
+    try {
+      socket.send(JSON.stringify({ type: 'CloseStream' }));
+      
+      // Close socket after ensuring message is sent
+      setTimeout(() => {
+        if (socket.readyState === WebSocket.OPEN) {
+          socket.close();
+        }
+      }, 300);
+    } catch (err) {
+      console.error('Error closing socket:', err);
+    }
   }
 }; 
