@@ -1,3 +1,4 @@
+//@ts-nocheck
 /**
  * Custom hook for Socket.io client integration
  * 

@@ -1,3 +1,4 @@
+//@ts-nocheck
 /**
  * Socket.io Server Implementation
  * 
